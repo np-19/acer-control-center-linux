@@ -47,12 +47,27 @@ A lightweight Linux control center for Acer laptops, providing a graphical inter
 
 A short demonstration of Acer Control Center running on Linux:
 
-[▶️ Watch the demo](demo/acer-control-center-demo.mp4)
+[▶️ Watch the demo](https://github.com/cyber-anshuman/acer-control-center-linux/blob/main/demo/acer-control-center-demo.mp4)
 
 ## 🛠️ Installation
+
+### Requirements
+
+- Linux
+- Python 3
+- GTK 4
+- PyGObject
+- psutil
+- `sudo` access
+
+### Install
 
 Clone the repository:
 
 ```bash
 git clone https://github.com/cyber-anshuman/acer-control-center-linux.git
 cd acer-control-center-linux
+Run the installer:
+
+```bash
+sudo ./install.sh
