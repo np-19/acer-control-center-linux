@@ -1,0 +1,1828 @@
+import subprocess
+# ============================================================
+import sys
+import threading
+import psutil
+from pathlib import Path
+
+import gi
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk
+PROJECT_ROOT = Path(__file__).resolve().parent.parent
+sys.path.insert(0, str(PROJECT_ROOT))
+
+
+# ============================================================
+# GTK
+# ============================================================
+
+gi.require_version("Gtk", "4.0")
+from gi.repository import Gtk, Gdk, GLib
+
+# ============================================================
+# GTK CSS
+# ============================================================
+
+def load_css():
+
+    css_provider = Gtk.CssProvider()
+
+    css_path = PROJECT_ROOT / "assets" / "style.css"
+
+    css_provider.load_from_path(
+        str(css_path)
+    )
+
+    Gtk.StyleContext.add_provider_for_display(
+        Gdk.Display.get_default(),
+        css_provider,
+        Gtk.STYLE_PROVIDER_PRIORITY_APPLICATION
+    )
+
+# ============================================================
+# RGB BACKEND
+# ============================================================
+
+from rgb.keyboard import (
+    set_color,
+    set_brightness,
+    rainbow,
+    breathing_purple,
+    turn_off,
+)
+
+
+# ============================================================
+# POWER BACKEND
+# ============================================================
+
+from power.power import (
+    get_power_info,
+    set_power_profile,
+)
+
+
+# ============================================================
+# APPLICATION
+# ============================================================
+
+class AcerControlCenter(Gtk.Application):
+
+    def __init__(self):
+
+        super().__init__(
+            application_id="com.acer.controlcenter"
+        )
+
+        self.rgb_stop_event = None
+
+
+    # ========================================================
+    # ACTIVATE
+    # ========================================================
+
+    def do_activate(self):
+        load_css()
+
+        self.window = Gtk.ApplicationWindow(
+            application=self
+        )
+
+        self.window.set_title(
+            "Acer Control Center"
+        )
+
+        self.window.set_default_size(
+            900,
+            600
+        )
+
+
+        # ====================================================
+        # MAIN LAYOUT
+        # ====================================================
+
+        main_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=0
+        )
+
+
+        # ====================================================
+        # SIDEBAR
+        # ====================================================
+
+        sidebar = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10
+        )
+
+        sidebar.set_size_request(
+            200,
+            -1
+        )
+
+        sidebar.set_margin_top(20)
+        sidebar.set_margin_start(15)
+        sidebar.set_margin_end(15)
+
+
+        title = Gtk.Label(
+            label="ACER\nCONTROL CENTER"
+        )
+
+        title.set_margin_top(10)
+        title.set_margin_bottom(20)
+
+        sidebar.append(title)
+
+
+        rgb_button = Gtk.Button(
+            label="🎨  Keyboard RGB"
+        )
+
+        power_button = Gtk.Button(
+            label="⚡  Power"
+        )
+
+        gpu_button = Gtk.Button(
+            label="🎮  GPU"
+        )
+
+        monitor_button = Gtk.Button(
+            label="🌡  Monitor"
+        )
+
+        system_button = Gtk.Button(
+            label="💻  System"
+        )
+
+
+        sidebar.append(rgb_button)
+        sidebar.append(power_button)
+        sidebar.append(gpu_button)
+        sidebar.append(monitor_button)
+        sidebar.append(system_button)
+
+
+        # ====================================================
+        # RIGHT SIDE
+        # ====================================================
+
+        right_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=0
+        )
+
+        right_box.set_hexpand(True)
+        right_box.set_vexpand(True)
+
+
+        # ====================================================
+        # CONTENT
+        # ====================================================
+
+        content = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10
+        )
+
+        content.set_margin_top(30)
+        content.set_margin_start(30)
+        content.set_margin_end(30)
+        content.set_margin_bottom(20)
+
+        content.set_vexpand(True)
+
+
+        right_box.append(content)
+
+
+        # ====================================================
+        # FOOTER
+        # ====================================================
+
+        footer = Gtk.Label(
+            label="Built by Anshuman • GitHub: cyber-anshuman"
+        )
+
+        footer.set_margin_bottom(10)
+
+        right_box.append(footer)
+
+
+        # ====================================================
+        # MAIN WINDOW
+        # ====================================================
+
+        main_box.append(sidebar)
+        main_box.append(right_box)
+
+        self.window.set_child(main_box)
+
+
+        # ====================================================
+        # BUTTON CONNECTIONS
+        # ====================================================
+
+        rgb_button.connect(
+            "clicked",
+            lambda button:
+            self.show_rgb_page(content)
+        )
+
+        power_button.connect(
+            "clicked",
+            lambda button:
+            self.show_power_page(content)
+        )
+
+        gpu_button.connect(
+            "clicked",
+            lambda button:
+            self.show_gpu_page(content)
+        )
+
+        monitor_button.connect(
+            "clicked",
+            lambda button:
+            self.show_monitor_page(content)
+        )
+
+        system_button.connect(
+            "clicked",
+            lambda button:
+            self.show_system_page(content)
+        )
+
+
+        # ====================================================
+        # START PAGE
+        # ====================================================
+
+        self.show_home_page(content)
+
+        self.window.present()
+
+
+    # ========================================================
+    # CLEAR CONTENT
+    # ========================================================
+
+    def clear_content(self, content):
+
+        while True:
+
+            child = content.get_first_child()
+
+            if child is None:
+                break
+
+            content.remove(child)
+
+
+    # ========================================================
+    # HOME PAGE
+    # ========================================================
+
+    def show_home_page(self, content):
+
+        self.stop_rgb_effect()
+
+        self.clear_content(content)
+
+
+        heading = Gtk.Label(
+            label="Acer Control Center"
+        )
+
+        heading.set_xalign(0)
+
+
+        subtitle = Gtk.Label(
+            label="Control your laptop hardware from Linux."
+        )
+
+        subtitle.set_xalign(0)
+
+
+        content.append(heading)
+        content.append(subtitle)
+
+
+        card = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=10
+        )
+
+        card.set_margin_top(30)
+
+
+        status = Gtk.Label(
+            label="● System Ready"
+        )
+
+        status.set_xalign(0)
+
+
+        info = Gtk.Label(
+            label=
+            "Acer hardware interface detected.\n"
+            "RGB keyboard backend is operational.\n"
+            "Power management backend is operational."
+        )
+
+        info.set_xalign(0)
+
+
+        card.append(status)
+        card.append(info)
+
+        content.append(card)
+
+
+    # ========================================================
+    # RGB PAGE
+    # ========================================================
+
+    def show_rgb_page(self, content):
+
+        self.clear_content(content)
+
+
+        heading = Gtk.Label(
+            label="Keyboard RGB"
+        )
+
+        heading.set_xalign(0)
+
+
+        subtitle = Gtk.Label(
+            label="Control your Acer keyboard lighting."
+        )
+
+        subtitle.set_xalign(0)
+
+
+        content.append(heading)
+        content.append(subtitle)
+
+
+        # ----------------------------------------------------
+        # COLORS
+        # ----------------------------------------------------
+
+        color_grid = Gtk.Grid()
+
+        color_grid.set_column_spacing(10)
+        color_grid.set_row_spacing(10)
+        color_grid.set_margin_top(20)
+
+
+        colors = [
+
+            ("🔴 Red", (255, 0, 0)),
+            ("🟠 Orange", (255, 80, 0)),
+            ("🟡 Yellow", (255, 255, 0)),
+            ("🟢 Green", (0, 255, 0)),
+
+            ("💙 Cyan", (0, 255, 255)),
+            ("🔵 Blue", (0, 0, 255)),
+            ("🟣 Purple", (128, 0, 255)),
+            ("💗 Pink", (255, 0, 128)),
+
+            ("💜 Magenta", (255, 0, 255)),
+            ("⚪ White", (255, 255, 255)),
+        ]
+
+
+        for index, (name, rgb) in enumerate(colors):
+
+            button = Gtk.Button(
+                label=name
+            )
+
+            row = index // 4
+            column = index % 4
+
+
+            color_grid.attach(
+                button,
+                column,
+                row,
+                1,
+                1
+            )
+
+
+            button.connect(
+                "clicked",
+                lambda button, rgb=rgb:
+                self.apply_color(rgb)
+            )
+
+
+        content.append(color_grid)
+
+
+        # ----------------------------------------------------
+        # BRIGHTNESS
+        # ----------------------------------------------------
+
+        brightness_label = Gtk.Label(
+            label="Brightness"
+        )
+
+        brightness_label.set_xalign(0)
+        brightness_label.set_margin_top(25)
+
+        content.append(brightness_label)
+
+
+        brightness = Gtk.Scale.new_with_range(
+            Gtk.Orientation.HORIZONTAL,
+            0,
+            255,
+            1
+        )
+
+        brightness.set_value(255)
+        brightness.set_hexpand(True)
+
+
+        brightness.connect(
+            "value-changed",
+            lambda scale:
+            set_brightness(
+                int(scale.get_value())
+            )
+        )
+
+
+        content.append(brightness)
+
+
+        # ----------------------------------------------------
+        # EFFECTS
+        # ----------------------------------------------------
+
+        effects_label = Gtk.Label(
+            label="Effects"
+        )
+
+        effects_label.set_xalign(0)
+        effects_label.set_margin_top(20)
+
+        content.append(effects_label)
+
+
+        rainbow_button = Gtk.Button(
+            label="🌈 Rainbow"
+        )
+
+        breathing_button = Gtk.Button(
+            label="💜 Breathing Purple"
+        )
+
+        off_button = Gtk.Button(
+            label="⚫ Turn Off"
+        )
+
+
+        content.append(rainbow_button)
+        content.append(breathing_button)
+        content.append(off_button)
+
+
+        rainbow_button.connect(
+            "clicked",
+            lambda button:
+            self.start_rainbow()
+        )
+
+
+        breathing_button.connect(
+            "clicked",
+            lambda button:
+            self.start_breathing()
+        )
+
+
+        off_button.connect(
+            "clicked",
+            lambda button:
+            self.stop_and_turn_off()
+        )
+
+
+    # ========================================================
+    # RGB FUNCTIONS
+    # ========================================================
+
+    def apply_color(self, rgb):
+
+        self.stop_rgb_effect()
+
+        r, g, b = rgb
+
+        set_color(
+            r,
+            g,
+            b
+        )
+
+
+    def start_rainbow(self):
+
+        self.stop_rgb_effect()
+
+        stop_event = threading.Event()
+
+        self.rgb_stop_event = stop_event
+
+        thread = threading.Thread(
+            target=rainbow,
+            args=(stop_event,),
+            daemon=True
+        )
+
+        thread.start()
+
+
+    def start_breathing(self):
+
+        self.stop_rgb_effect()
+
+        stop_event = threading.Event()
+
+        self.rgb_stop_event = stop_event
+
+        thread = threading.Thread(
+            target=breathing_purple,
+            args=(stop_event,),
+            daemon=True
+        )
+
+        thread.start()
+
+
+    def stop_rgb_effect(self):
+
+        if self.rgb_stop_event is not None:
+
+            self.rgb_stop_event.set()
+
+            self.rgb_stop_event = None
+
+
+    def stop_and_turn_off(self):
+
+        self.stop_rgb_effect()
+
+        turn_off()
+
+
+    # ========================================================
+    # POWER PAGE
+    # ========================================================
+
+    def show_power_page(self, content):
+        self.clear_content(content)
+
+        title = Gtk.Label(label="Power")
+        title.set_xalign(0)
+        title.add_css_class("page-title")
+
+        subtitle = Gtk.Label(
+            label="Manage battery and system power performance."
+        )
+        subtitle.set_xalign(0)
+        subtitle.add_css_class("page-subtitle")
+
+        content.append(title)
+        content.append(subtitle)
+
+        # Get current power information
+        info = get_power_info()
+
+        # Battery
+        battery_label = Gtk.Label(
+            label=f"🔋 Battery: {info['battery']}%"
+        )
+        battery_label.set_xalign(0)
+
+        status_label = Gtk.Label(
+            label=f"Status: {info['status']}"
+        )
+        status_label.set_xalign(0)
+
+        content.append(battery_label)
+        content.append(status_label)
+
+        # Current profile
+        profile_label = Gtk.Label(
+            label=f"Current profile: {info['profile'].replace('-', ' ').title()}"
+        )
+        profile_label.set_xalign(0)
+
+        content.append(profile_label)
+
+        # Power profile buttons
+        profile_box = Gtk.Box(
+            orientation=Gtk.Orientation.HORIZONTAL,
+            spacing=10
+        )
+
+        profiles = [
+            ("⚡ Performance", "performance"),
+            ("⚖ Balanced", "balanced"),
+            ("🔋 Power Saver", "power-saver")
+        ]
+
+        for label, profile in profiles:
+
+            button = Gtk.Button(label=label)
+
+            if profile not in info["available_profiles"]:
+                button.set_sensitive(False)
+
+            button.connect(
+                "clicked",
+                lambda button, p=profile:
+                self.change_power_profile(content, p)
+            )
+
+            profile_box.append(button)
+
+        content.append(profile_box)
+
+
+            # ========================================================
+
+    # ========================================================
+    # CHANGE POWER PROFILE
+    # ========================================================
+
+    def change_power_profile(self, content, profile):
+        success, actual = set_power_profile(profile)
+
+        if success:
+            print(f"Power profile changed to: {actual}")
+        else:
+            print(
+                f"Failed to change power profile. Actual: {actual}"
+            )
+
+        self.show_power_page(content)
+
+    # GPU PAGE
+    # ========================================================
+
+    def show_gpu_page(self, content):
+
+        self.stop_rgb_effect()
+
+        self.clear_content(content)
+
+        # ====================================================
+        # HEADER
+        # ====================================================
+
+        heading = Gtk.Label(
+            label="GPU Management"
+        )
+
+        heading.set_xalign(0)
+
+        subtitle = Gtk.Label(
+            label="Manage integrated graphics and NVIDIA GPU."
+        )
+
+        subtitle.set_xalign(0)
+
+        content.append(heading)
+        content.append(subtitle)
+
+        # ====================================================
+        # GPU DETECTION
+        # ====================================================
+
+        gpu_box = Gtk.Box(
+            orientation=Gtk.Orientation.VERTICAL,
+            spacing=8
+        )
+
+        gpu_box.set_margin_top(25)
+
+        gpu_title = Gtk.Label(
+            label="Graphics Processors"
+        )
+
+        gpu_title.set_xalign(0)
+
+        gpu_box.append(gpu_title)
+
+        # ----------------------------------------------------
+        # INTEL GPU
+        # ----------------------------------------------------
+
+        intel_label = Gtk.Label(
+            label="🟢 Intel UHD Graphics — Integrated"
+        )
+
+        intel_label.set_xalign(0)
+
+        gpu_box.append(intel_label)
+
+        # ----------------------------------------------------
+        # NVIDIA GPU
+        # ----------------------------------------------------
+
+        nvidia_label = Gtk.Label(
+            label="🟢 NVIDIA GeForce RTX 3050 6GB — Discrete"
+        )
+
+        nvidia_label.set_xalign(0)
+
+        gpu_box.append(nvidia_label)
+
+        content.append(gpu_box)
+
+        # ====================================================
+        # GRAPHICS MODE
+        # ====================================================
+
+        mode_title = Gtk.Label(
+            label="Graphics Mode"
+        )
+
+        mode_title.set_xalign(0)
+        mode_title.set_margin_top(25)
+
+        content.append(mode_title)
+
+        mode_status = Gtk.Label(
+            label="⚡ Hybrid / PRIME Render Offload"
+        )
+
+        mode_status.set_xalign(0)
+
+        content.append(mode_status)
+
+        mode_description = Gtk.Label(
+            label=
+            "The Intel GPU handles the desktop by default.\n"
+            "Applications can be launched using the NVIDIA RTX 3050."
+        )
+
+        mode_description.set_xalign(0)
+        mode_description.set_margin_top(8)
+
+        content.append(mode_description)
+
+        # ====================================================
+        # NVIDIA STATUS
+        # ====================================================
+
+        status_title = Gtk.Label(
+            label="NVIDIA GPU Status"
+        )
+
+        status_title.set_xalign(0)
+        status_title.set_margin_top(25)
+
+        content.append(status_title)
+
+        nvidia_status = Gtk.Label(
+            label="Checking NVIDIA GPU..."
+        )
+
+        nvidia_status.set_xalign(0)
+
+        content.append(nvidia_status)
+
+        # ====================================================
+        # CHECK NVIDIA GPU
+        # ====================================================
+
+        def check_nvidia():
+
+            try:
+
+                result = subprocess.run(
+                    ["nvidia-smi"],
+                    capture_output=True,
+                    text=True,
+                    timeout=5
+                )
+
+                if result.returncode == 0:
+
+                    nvidia_status.set_text(
+                        "🟢 NVIDIA driver operational\n"
+                        "RTX 3050 detected and available"
+                    )
+
+                else:
+
+                    nvidia_status.set_text(
+                        "🔴 NVIDIA GPU unavailable"
+                    )
+
+            except Exception:
+
+                nvidia_status.set_text(
+                    "🔴 nvidia-smi not available"
+                )
+
+        check_nvidia()
+
+        # ====================================================
+        # SEPARATOR
+        # ====================================================
+
+        separator = Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL
+        )
+
+        separator.set_margin_top(25)
+        separator.set_margin_bottom(20)
+
+        content.append(separator)
+
+        # ====================================================
+        # NVIDIA OFFLOAD
+        # ====================================================
+
+        offload_title = Gtk.Label(
+            label="GPU Offloading"
+        )
+
+        offload_title.set_xalign(0)
+
+        content.append(offload_title)
+
+        offload_description = Gtk.Label(
+            label=
+            "Run an application using the NVIDIA RTX 3050\n"
+            "without changing the system's default graphics mode."
+        )
+
+        offload_description.set_xalign(0)
+        offload_description.set_margin_top(8)
+
+        content.append(offload_description)
+
+        # ====================================================
+        # APPLICATION ENTRY
+        # ====================================================
+
+        application_entry = Gtk.Entry()
+
+        application_entry.set_placeholder_text(
+            "Enter application command (example: glxinfo)"
+        )
+
+        application_entry.set_margin_top(15)
+
+        content.append(application_entry)
+
+        # ====================================================
+        # LAUNCH WITH NVIDIA
+        # ====================================================
+
+        launch_button = Gtk.Button(
+            label="🎮 Launch Application with NVIDIA GPU"
+        )
+
+        launch_button.set_margin_top(10)
+
+        content.append(launch_button)
+
+        # ====================================================
+        # LAUNCH FUNCTION
+        # ====================================================
+
+        def launch_with_nvidia(button):
+
+            command = application_entry.get_text().strip()
+
+            if not command:
+
+                nvidia_status.set_text(
+                    "⚠ Enter an application command first."
+                )
+
+                return
+
+            try:
+
+                subprocess.Popen(
+                    [
+                        "env",
+                        "__NV_PRIME_RENDER_OFFLOAD=1",
+                        "__GLX_VENDOR_LIBRARY_NAME=nvidia",
+                        "__VK_LAYER_NV_optimus=NVIDIA_only",
+                        command
+                    ]
+                )
+
+                nvidia_status.set_text(
+                    f"🟢 Launched '{command}' using NVIDIA GPU"
+                )
+
+            except Exception as error:
+
+                nvidia_status.set_text(
+                    f"⚠ Failed to launch application: {error}"
+                )
+
+        launch_button.connect(
+            "clicked",
+            launch_with_nvidia
+        )
+
+    # ========================================================
+    # MONITOR PAGE
+    # ========================================================
+
+    def show_monitor_page(self, content):
+
+        self.stop_rgb_effect()
+
+        self.clear_content(content)
+
+        # ====================================================
+        # HEADER
+        # ====================================================
+
+        heading = Gtk.Label(
+            label="Hardware Monitor"
+        )
+
+        heading.set_xalign(0)
+
+        subtitle = Gtk.Label(
+            label="Real-time system temperature and resource monitoring."
+        )
+
+        subtitle.set_xalign(0)
+
+        content.append(heading)
+        content.append(subtitle)
+
+        # ====================================================
+        # CPU TEMPERATURE
+        # ====================================================
+
+        cpu_title = Gtk.Label(
+            label="🌡️ CPU Temperature"
+        )
+
+        cpu_title.set_xalign(0)
+        cpu_title.set_margin_top(25)
+
+        content.append(cpu_title)
+
+        cpu_temp = Gtk.Label(
+            label="Reading CPU temperature..."
+        )
+
+        cpu_temp.set_xalign(0)
+
+        content.append(cpu_temp)
+
+        # ====================================================
+        # CPU USAGE
+        # ====================================================
+
+        cpu_usage_title = Gtk.Label(
+            label="⚙️ CPU Usage"
+        )
+
+        cpu_usage_title.set_xalign(0)
+        cpu_usage_title.set_margin_top(20)
+
+        content.append(cpu_usage_title)
+
+        cpu_usage = Gtk.Label(
+            label="Reading CPU usage..."
+        )
+
+        cpu_usage.set_xalign(0)
+
+        content.append(cpu_usage)
+
+        cpu_bar = Gtk.ProgressBar()
+
+        cpu_bar.set_show_text(True)
+        cpu_bar.set_fraction(0)
+
+        content.append(cpu_bar)
+
+        # ====================================================
+        # NVIDIA GPU
+        # ====================================================
+
+        gpu_title = Gtk.Label(
+            label="🎮 NVIDIA GeForce RTX 3050"
+        )
+
+        gpu_title.set_xalign(0)
+        gpu_title.set_margin_top(20)
+
+        content.append(gpu_title)
+
+        gpu_info = Gtk.Label(
+            label="Reading NVIDIA GPU..."
+        )
+
+        gpu_info.set_xalign(0)
+
+        content.append(gpu_info)
+
+        # ====================================================
+        # MEMORY
+        # ====================================================
+
+        memory_title = Gtk.Label(
+            label="🧠 Memory"
+        )
+
+        memory_title.set_xalign(0)
+        memory_title.set_margin_top(20)
+
+        content.append(memory_title)
+
+        memory_info = Gtk.Label(
+            label="Reading memory..."
+        )
+
+        memory_info.set_xalign(0)
+
+        content.append(memory_info)
+
+        memory_bar = Gtk.ProgressBar()
+
+        memory_bar.set_show_text(True)
+        memory_bar.set_fraction(0)
+
+        content.append(memory_bar)
+
+        # ====================================================
+        # DISK
+        # ====================================================
+
+        disk_title = Gtk.Label(
+            label="💾 Disk"
+        )
+
+        disk_title.set_xalign(0)
+        disk_title.set_margin_top(20)
+
+        content.append(disk_title)
+
+        disk_info = Gtk.Label(
+            label="Reading disk usage..."
+        )
+
+        disk_info.set_xalign(0)
+
+        content.append(disk_info)
+
+        disk_bar = Gtk.ProgressBar()
+
+        disk_bar.set_show_text(True)
+        disk_bar.set_fraction(0)
+
+        content.append(disk_bar)
+
+        # ====================================================
+        # UPTIME
+        # ====================================================
+
+        uptime_title = Gtk.Label(
+            label="⏱️ Uptime"
+        )
+
+        uptime_title.set_xalign(0)
+        uptime_title.set_margin_top(20)
+
+        content.append(uptime_title)
+
+        uptime_info = Gtk.Label(
+            label="Reading uptime..."
+        )
+
+        uptime_info.set_xalign(0)
+
+        content.append(uptime_info)
+
+        # ====================================================
+        # FAN
+        # ====================================================
+
+        fan_title = Gtk.Label(
+            label="🌀 Fan"
+        )
+
+        fan_title.set_xalign(0)
+        fan_title.set_margin_top(20)
+
+        content.append(fan_title)
+
+        fan_info = Gtk.Label(
+            label="Checking fan sensor..."
+        )
+
+        fan_info.set_xalign(0)
+
+        content.append(fan_info)
+
+        # ====================================================
+        # SEPARATOR
+        # ====================================================
+
+        separator = Gtk.Separator(
+            orientation=Gtk.Orientation.HORIZONTAL
+        )
+
+        separator.set_margin_top(25)
+        separator.set_margin_bottom(15)
+
+        content.append(separator)
+
+        # ====================================================
+        # REFRESH STATUS
+        # ====================================================
+
+        refresh_status = Gtk.Label(
+            label="Monitoring active"
+        )
+
+        refresh_status.set_xalign(0)
+
+        content.append(refresh_status)
+
+        # ====================================================
+        # CPU TEMPERATURE
+        # ====================================================
+
+        def get_cpu_temperature():
+
+            try:
+
+                result = subprocess.run(
+                    ["sensors"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+
+                lines = result.stdout.splitlines()
+
+                # Prefer CPU Package temperature
+                for line in lines:
+
+                    if "Package id 0:" in line:
+
+                        value = line.split(":", 1)[1].strip()
+                        value = value.split("°C")[0].strip()
+
+                        return f"{value}°C"
+
+                # Fallback to Core 0
+                for line in lines:
+
+                    if "Core 0:" in line:
+
+                        value = line.split(":", 1)[1].strip()
+                        value = value.split("°C")[0].strip()
+
+                        return f"{value}°C"
+
+                return "Unavailable"
+
+            except Exception:
+
+                return "Unavailable"
+
+        # ====================================================
+        # NVIDIA INFORMATION
+        # ====================================================
+
+        def get_nvidia_info():
+
+            try:
+
+                result = subprocess.run(
+                    [
+                        "nvidia-smi",
+                        "--query-gpu=temperature.gpu,utilization.gpu,power.draw",
+                        "--format=csv,noheader,nounits"
+                    ],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+
+                if result.returncode != 0:
+                    return None
+
+                data = result.stdout.strip()
+
+                if not data:
+                    return None
+
+                parts = [
+                    item.strip()
+                    for item in data.split(",")
+                ]
+
+                if len(parts) < 3:
+                    return None
+
+                temperature = parts[0]
+                utilization = parts[1]
+                power = parts[2]
+
+                return (
+                    temperature,
+                    utilization,
+                    power
+                )
+
+            except Exception:
+
+                return None
+
+        # ====================================================
+        # MEMORY INFORMATION
+        # ====================================================
+
+        def get_memory_info():
+
+            try:
+
+                memory = {}
+
+                with open(
+                    "/proc/meminfo",
+                    "r"
+                ) as file:
+
+                    for line in file:
+
+                        key, value = line.split(":", 1)
+
+                        memory[key] = int(
+                            value.strip().split()[0]
+                        )
+
+                total = memory["MemTotal"]
+                available = memory["MemAvailable"]
+
+                used = total - available
+
+                total_gb = total / 1024 / 1024
+                used_gb = used / 1024 / 1024
+
+                return (
+                    used_gb,
+                    total_gb
+                )
+
+            except Exception:
+
+                return None
+
+        # ====================================================
+        # FAN INFORMATION
+        # ====================================================
+
+        def get_fan_info():
+
+            try:
+
+                result = subprocess.run(
+                    ["sensors"],
+                    capture_output=True,
+                    text=True,
+                    timeout=3
+                )
+
+                for line in result.stdout.splitlines():
+
+                    if "fan" in line.lower():
+
+                        if "RPM" in line.upper():
+
+                            return line.strip()
+
+                return "Fan RPM unavailable"
+
+            except Exception:
+
+                return "Fan RPM unavailable"
+
+        # ====================================================
+        # DISK INFORMATION
+        # ====================================================
+
+        def get_disk_info():
+
+            try:
+
+                disk = psutil.disk_usage("/")
+
+                return disk.percent
+
+            except Exception:
+
+                return None
+
+        # ====================================================
+        # UPTIME INFORMATION
+        # ====================================================
+
+        def get_uptime():
+
+            try:
+
+                uptime_seconds = int(
+                    psutil.boot_time()
+                )
+
+                current_time = int(
+                    __import__("time").time()
+                )
+
+                seconds = current_time - uptime_seconds
+
+                days = seconds // 86400
+                seconds %= 86400
+
+                hours = seconds // 3600
+                seconds %= 3600
+
+                minutes = seconds // 60
+
+                if days > 0:
+
+                    return (
+                        f"{days} day(s), "
+                        f"{hours} hour(s), "
+                        f"{minutes} minute(s)"
+                    )
+
+                if hours > 0:
+
+                    return (
+                        f"{hours} hour(s), "
+                        f"{minutes} minute(s)"
+                    )
+
+                return f"{minutes} minute(s)"
+
+            except Exception:
+
+                return "Unavailable"
+
+        # ====================================================
+        # CPU USAGE INITIALIZATION
+        # ====================================================
+
+        psutil.cpu_percent(
+            interval=None
+        )
+
+        # ====================================================
+        # UPDATE MONITOR
+        # ====================================================
+
+        def update_monitor():
+
+            # -----------------------------------------------
+            # CPU TEMPERATURE
+            # -----------------------------------------------
+
+            cpu_value = get_cpu_temperature()
+
+            cpu_temp.set_text(
+                f"Current temperature: {cpu_value}"
+            )
+
+            # -----------------------------------------------
+            # CPU USAGE
+            # -----------------------------------------------
+
+            cpu_percent = psutil.cpu_percent(
+                interval=None
+            )
+
+            cpu_usage.set_text(
+                f"Current usage: {cpu_percent:.1f}%"
+            )
+
+            cpu_bar.set_fraction(
+                cpu_percent / 100
+            )
+
+            cpu_bar.set_text(
+                f"{cpu_percent:.1f}%"
+            )
+
+            # -----------------------------------------------
+            # NVIDIA
+            # -----------------------------------------------
+
+            gpu_data = get_nvidia_info()
+
+            if gpu_data:
+
+                temperature, utilization, power = gpu_data
+
+                gpu_info.set_text(
+                    f"Temperature: {temperature}°C\n"
+                    f"Utilization: {utilization}%\n"
+                    f"Power: {power} W"
+                )
+
+            else:
+
+                gpu_info.set_text(
+                    "NVIDIA GPU unavailable"
+                )
+
+            # -----------------------------------------------
+            # MEMORY
+            # -----------------------------------------------
+
+            memory_data = get_memory_info()
+
+            if memory_data:
+
+                used, total = memory_data
+
+                percentage = (
+                    used / total
+                ) * 100
+
+                memory_info.set_text(
+                    f"Usage: {used:.1f} GB / "
+                    f"{total:.1f} GB "
+                    f"({percentage:.0f}%)"
+                )
+
+                memory_bar.set_fraction(
+                    percentage / 100
+                )
+
+                memory_bar.set_text(
+                    f"{percentage:.0f}%"
+                )
+
+            else:
+
+                memory_info.set_text(
+                    "Memory information unavailable"
+                )
+
+                memory_bar.set_fraction(0)
+                memory_bar.set_text("Unavailable")
+
+            # -----------------------------------------------
+            # DISK
+            # -----------------------------------------------
+
+            disk_percent = get_disk_info()
+
+            if disk_percent is not None:
+
+                disk_info.set_text(
+                    f"Usage: {disk_percent:.1f}%"
+                )
+
+                disk_bar.set_fraction(
+                    disk_percent / 100
+                )
+
+                disk_bar.set_text(
+                    f"{disk_percent:.1f}%"
+                )
+
+            else:
+
+                disk_info.set_text(
+                    "Disk information unavailable"
+                )
+
+                disk_bar.set_fraction(0)
+                disk_bar.set_text("Unavailable")
+
+            # -----------------------------------------------
+            # UPTIME
+            # -----------------------------------------------
+
+            uptime_info.set_text(
+                get_uptime()
+            )
+
+            # -----------------------------------------------
+            # FAN
+            # -----------------------------------------------
+
+            fan_info.set_text(
+                get_fan_info()
+            )
+
+            # -----------------------------------------------
+            # STATUS
+            # -----------------------------------------------
+
+            refresh_status.set_text(
+                "🟢 Monitoring active • Updated just now"
+            )
+
+            return True
+
+        # ====================================================
+        # INITIAL UPDATE
+        # ====================================================
+
+        update_monitor()
+
+        # ====================================================
+        # AUTOMATIC REFRESH
+        # ====================================================
+
+        GLib.timeout_add_seconds(
+            2,
+            update_monitor
+        )
+
+
+    # ========================================================
+    # SYSTEM PAGE
+    # ========================================================
+
+    
+    def show_system_page(self, content):
+
+        self.stop_rgb_effect()
+
+        self.clear_content(content)
+
+        # ====================================================
+        # HEADER
+        # ====================================================
+
+        heading = Gtk.Label(
+            label="System Information"
+        )
+
+        heading.set_xalign(0)
+
+        subtitle = Gtk.Label(
+            label="Detailed information about your laptop and Linux system."
+        )
+
+        subtitle.set_xalign(0)
+
+        content.append(heading)
+        content.append(subtitle)
+
+        # ====================================================
+        # SYSTEM INFORMATION
+        # ====================================================
+
+        try:
+
+            system = subprocess.check_output(
+                ["bash", "-c", ". /etc/os-release && echo \"$PRETTY_NAME\""],
+                text=True
+            ).strip()
+
+        except Exception:
+
+            system = "Linux"
+
+        try:
+
+            hostname = subprocess.check_output(
+                ["hostname"],
+                text=True
+            ).strip()
+
+        except Exception:
+
+            hostname = "Unknown"
+
+        try:
+
+            kernel = subprocess.check_output(
+                ["uname", "-r"],
+                text=True
+            ).strip()
+
+        except Exception:
+
+            kernel = "Unknown"
+
+        try:
+
+            architecture = subprocess.check_output(
+                ["uname", "-m"],
+                text=True
+            ).strip()
+
+        except Exception:
+
+            architecture = "Unknown"
+
+        # ====================================================
+        # CPU INFORMATION
+        # ====================================================
+
+        try:
+
+            cpu = subprocess.check_output(
+                [
+                    "bash",
+                    "-c",
+                    "grep -m1 '^model name' /proc/cpuinfo | cut -d ':' -f 2"
+                ],
+                text=True
+            ).strip()
+
+        except Exception:
+
+            cpu = "Unknown"
+
+        try:
+
+            physical_cores = psutil.cpu_count(
+                logical=False
+            )
+
+            logical_cores = psutil.cpu_count(
+                logical=True
+            )
+
+            if physical_cores is None:
+                physical_cores = "Unknown"
+
+            if logical_cores is None:
+                logical_cores = "Unknown"
+
+        except Exception:
+
+            physical_cores = "Unknown"
+            logical_cores = "Unknown"
+
+        # ====================================================
+        # MEMORY
+        # ====================================================
+
+        try:
+
+            memory = psutil.virtual_memory()
+
+            ram_used = memory.used / (1024 ** 3)
+            ram_total = memory.total / (1024 ** 3)
+            ram_percent = memory.percent
+
+        except Exception:
+
+            ram_used = 0
+            ram_total = 0
+            ram_percent = 0
+
+        # ====================================================
+        # STORAGE
+        # ====================================================
+
+        try:
+
+            disk = psutil.disk_usage("/")
+
+            disk_used = disk.used / (1024 ** 3)
+            disk_total = disk.total / (1024 ** 3)
+            disk_percent = disk.percent
+
+        except Exception:
+
+            disk_used = 0
+            disk_total = 0
+            disk_percent = 0
+
+        # ====================================================
+        # UPTIME
+        # ====================================================
+
+        try:
+
+            uptime_seconds = int(
+                __import__("time").time()
+                - psutil.boot_time()
+            )
+
+            days = uptime_seconds // 86400
+
+            uptime_seconds %= 86400
+
+            hours = uptime_seconds // 3600
+
+            uptime_seconds %= 3600
+
+            minutes = uptime_seconds // 60
+
+            if days > 0:
+
+                uptime = (
+                    f"{days} day(s), "
+                    f"{hours} hour(s), "
+                    f"{minutes} minute(s)"
+                )
+
+            elif hours > 0:
+
+                uptime = (
+                    f"{hours} hour(s), "
+                    f"{minutes} minute(s)"
+                )
+
+            else:
+
+                uptime = f"{minutes} minute(s)"
+
+        except Exception:
+
+            uptime = "Unknown"
+
+        # ====================================================
+        # DISPLAY
+        # ====================================================
+
+        system_info = Gtk.Label(
+            label=(
+                f"🐧 Operating System\n"
+                f"{system}\n\n"
+
+                f"🖥️ Hostname\n"
+                f"{hostname}\n\n"
+
+                f"⚙️ CPU\n"
+                f"{cpu}\n\n"
+
+                f"🧮 CPU Cores\n"
+                f"Physical: {physical_cores}   "
+                f"Logical: {logical_cores}\n\n"
+
+                f"🏗️ Architecture\n"
+                f"{architecture}\n\n"
+
+                f"🐧 Linux Kernel\n"
+                f"{kernel}\n\n"
+
+                f"🧠 Memory\n"
+                f"{ram_used:.1f} GB / "
+                f"{ram_total:.1f} GB "
+                f"({ram_percent:.0f}%)\n\n"
+
+                f"💾 Root Storage\n"
+                f"{disk_used:.1f} GB / "
+                f"{disk_total:.1f} GB "
+                f"({disk_percent:.1f}%)\n\n"
+
+                f"⏱️ System Uptime\n"
+                f"{uptime}"
+            )
+        )
+
+        system_info.set_xalign(0)
+        system_info.set_margin_top(30)
+
+        content.append(system_info)
+
+
+    # ========================================================
+    # SHUTDOWN
+    # ========================================================
+
+    def do_shutdown(self):
+
+        self.stop_rgb_effect()
+
+        Gtk.Application.do_shutdown(self)
+
+
+# ============================================================
+# START
+# ============================================================
+
+if __name__ == "__main__":
+
+    app = AcerControlCenter()
+
+    app.run(sys.argv)

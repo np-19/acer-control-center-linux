@@ -1,0 +1,95 @@
+/* ============================================================
+   ACER CONTROL CENTER - GTK4 DARK THEME
+   ============================================================ */
+
+window {
+    background-color: #171820;
+    color: #eeeeee;
+}
+
+/* General labels */
+label {
+    color: #eeeeee;
+}
+
+/* ============================================================
+   BUTTONS
+   ============================================================ */
+
+button {
+    background: #252833;
+    background-color: #252833;
+
+    color: #eeeeee;
+
+    border: 1px solid #3b3e4a;
+    border-radius: 7px;
+
+    padding: 8px 12px;
+
+    box-shadow: none;
+}
+
+/* Make button text explicitly visible */
+button label {
+    color: #eeeeee;
+}
+
+/* Hover */
+button:hover {
+    background: #303441;
+    background-color: #303441;
+}
+
+/* Pressed */
+button:active {
+    background: #3b1f50;
+    background-color: #3b1f50;
+}
+
+/* Keyboard RGB selected button */
+button:focus {
+    outline: 2px solid #b000ff;
+    outline-offset: 1px;
+}
+
+/* ============================================================
+   SCALE / BRIGHTNESS
+   ============================================================ */
+
+scale trough {
+    background-color: #30323d;
+    border-radius: 5px;
+}
+
+scale highlight {
+    background-color: #c000ff;
+    border-radius: 5px;
+}
+
+scale slider {
+    background-color: #eeeeee;
+    border: 1px solid #555866;
+}
+
+/* ============================================================
+   MAIN CONTAINERS
+   ============================================================ */
+
+box {
+    color: #eeeeee;
+}
+
+/* ============================================================
+   WINDOW TITLEBAR
+   ============================================================ */
+
+headerbar {
+    background: #111218;
+    background-color: #111218;
+    color: #eeeeee;
+}
+
+headerbar label {
+    color: #eeeeee;
+}
