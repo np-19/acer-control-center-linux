@@ -28,16 +28,55 @@ if ! command -v python3 >/dev/null 2>&1; then
     echo "Please install Python 3 first."
     exit 1
 fi
+
 echo ""
 echo "Checking required dependencies..."
 
-sudo apt-get update
+# Detect package manager and install dependencies accordingly
+if command -v apt-get >/dev/null 2>&1; then
+    echo "Detected apt (Debian/Ubuntu family)"
+    sudo apt-get update
+    sudo apt-get install -y \
+        python3 \
+        python3-gi \
+        python3-psutil \
+        gir1.2-gtk-4.0
 
-sudo apt-get install -y \
-    python3 \
-    python3-gi \
-    python3-psutil \
-    gir1.2-gtk-4.0
+elif command -v dnf >/dev/null 2>&1; then
+    echo "Detected dnf (Fedora/RHEL family)"
+    sudo dnf install -y \
+        python3 \
+        python3-gobject \
+        python3-psutil \
+        gtk4
+
+elif command -v pacman >/dev/null 2>&1; then
+    echo "Detected pacman (Arch family)"
+    sudo pacman -Sy --needed --noconfirm \
+        python \
+        python-gobject \
+        python-psutil \
+        gtk4
+
+elif command -v zypper >/dev/null 2>&1; then
+    echo "Detected zypper (openSUSE family)"
+    sudo zypper install -y \
+        python3 \
+        python3-gobject \
+        python3-psutil \
+        gtk4
+
+else
+    echo "Warning: Could not detect a supported package manager"
+    echo "(apt, dnf, pacman, zypper)."
+    echo "Please ensure the following are installed manually before continuing:"
+    echo "  - python3"
+    echo "  - PyGObject (python3-gi / python3-gobject / python-gobject)"
+    echo "  - psutil (python3-psutil / python-psutil)"
+    echo "  - GTK4 (gir1.2-gtk-4.0 / gtk4)"
+    read -p "Press Enter to continue anyway, or Ctrl+C to abort..."
+fi
+
 echo "[1/5] Creating installation directories..."
 
 sudo mkdir -p "$INSTALL_DIR"
